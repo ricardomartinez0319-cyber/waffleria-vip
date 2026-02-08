@@ -21,7 +21,7 @@ st.sidebar.title("La Waffleria VIP")
 modo = st.sidebar.radio("Ir a:", ["🛍️ Hacer Pedido", "⚙️ Gestionar Productos", "📊 Panel de Ventas"])
 
 # --- WHATSAPP CONFIG ---
-NUMERO_WHATSAPP = "573000000000" # <-- REEMPLAZA CON TU NÚMERO (Sin el +)
+NUMERO_WHATSAPP = "573152926973" # <-- REEMPLAZA CON TU NÚMERO (Sin el +)
 
 # --- MODO: HACER PEDIDO ---
 if modo == "🛍️ Hacer Pedido":
@@ -115,3 +115,4 @@ elif modo == "📊 Panel de Ventas":
             st.rerun()
     else:
         st.info("No hay pedidos registrados en esta sesión.")
+
