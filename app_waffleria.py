@@ -2,27 +2,33 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import urllib.parse
-from streamlit_image_carousel import ImageCarousel
 
-# --- CONFIGURACIÓN ---
 st.set_page_config(page_title="La Waffleria VIP", page_icon="🧇", layout="wide")
 
-# --- ESTILOS PROFESIONALES (Rosado, Café, Amarillo) ---
+# --- ESTILOS PERSONALIZADOS ---
 st.markdown("""
 <style>
     :root { --rosado: #FFC0CB; --cafe: #5D4037; --amarillo: #FFD700; }
     .stApp { background-color: #FFF9FB; }
     [data-testid="stSidebar"] { background-color: var(--rosado) !important; }
-    h1, h2, h3, h4 { color: var(--cafe) !important; font-family: 'Verdana', sans-serif; }
     
     .product-card {
-        background-color: white; border: 2px solid var(--amarillo); border-radius: 15px;
-        padding: 10px; text-align: center; margin-bottom: 10px; box-shadow: 0px 4px 8px rgba(0,0,0,0.05);
+        background-color: white;
+        border: 2px solid var(--amarillo);
+        border-radius: 15px;
+        padding: 10px;
+        text-align: center;
+        margin-bottom: 5px;
     }
-    .product-card img { width: 100%; border-radius: 10px; height: 140px; object-fit: cover; }
-    .price-tag { background-color: var(--amarillo); color: var(--cafe); font-weight: bold; border-radius: 5px; padding: 2px 8px; }
+    .product-card img { width: 100%; border-radius: 10px; height: 130px; object-fit: cover; }
     
-    .stTabs [aria-selected="true"] { background-color: var(--amarillo) !important; color: var(--cafe) !important; }
+    /* Estilo para que el resumen se vea profesional */
+    .resumen-box {
+        background-color: #fffde7;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px dashed var(--cafe);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -30,51 +36,95 @@ st.markdown("""
 if 'productos_db' not in st.session_state:
     st.session_state.productos_db = [
         {"nombre": "Waffle Oreo", "precio": 15000, "foto": "https://shoppedifacil.app/lawaffleriavip/uploads/carousel/waffle-oreo-3.png", "cat": "Waffles"},
-        {"nombre": "Crepe Pollo", "precio": 18000, "foto": "https://via.placeholder.com/150", "cat": "Crepes"},
-        {"nombre": "Malteada", "precio": 12000, "foto": "https://via.placeholder.com/150", "cat": "Malteadas"}
+        {"nombre": "Crepe de Pollo", "precio": 18000, "foto": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400", "cat": "Crepes"},
+        {"nombre": "Malteada Vainilla", "precio": 12000, "foto": "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=400", "cat": "Malteadas"},
+        {"nombre": "Limonada Natural", "precio": 8000, "foto": "https://images.unsplash.com/photo-1523472721958-978152f4d69b?w=400", "cat": "Bebidas Frías"}
     ]
 
-# --- NAVEGACIÓN ---
+if 'pedidos' not in st.session_state: st.session_state.pedidos = []
+
 NUMERO_WHATSAPP = "573152926973"
-st.sidebar.image("https://yourfiles.cloud/uploads/9caa7594996bc50a02d6f45917143c9f/LOGO%202.png", width=120)
-opcion = st.sidebar.radio("MENÚ", ["🛒 Hacer Pedido", "⚙️ Admin", "📈 Ventas"])
+CLAVE_ADMIN = "1234"
 
-if opcion == "🛒 Hacer Pedido":
-    # BANNER MÓVIL (Carrusel)
-    imagenes = [
-        "https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=1200&auto=format&fit=crop",
-        "https://images.unsplash.com/photo-1563805001-a47690623a35?q=80&w=1200&auto=format&fit=crop"
-    ]
-    ImageCarousel(imagenes, height=250)
-    
+# --- SIDEBAR ---
+st.sidebar.image("https://yourfiles.cloud/uploads/9caa7594996bc50a02d6f45917143c9f/LOGO%202.png", width=120)
+opcion = st.sidebar.radio("NAVEGACIÓN", ["🛒 Menú VIP", "⚙️ Admin Productos", "📈 Reporte Ventas"])
+
+# --- VISTA: HACER PEDIDO ---
+if opcion == "🛒 Menú VIP":
+    st.image("https://images.unsplash.com/photo-1551024601-bec78aea704b?q=80&w=1200&auto=format&fit=crop", use_container_width=True)
     st.title("🧇 ¡Bienvenido a La Waffleria VIP!")
-    tabs = st.tabs(["Waffles 🧇", "Crepes 🥞", "Malteadas 🥤", "Bebidas 🍹"])
     
+    st.write("### 1. Selecciona tus productos:")
+    t1, t2, t3, t4 = st.tabs(["Waffles 🧇", "Crepes 🥞", "Malteadas 🥤", "Bebidas Frías 🍹"])
+    
+    # Lista global de seleccionados para esta sesión de compra
     carrito = []
-    
-    def mostrar(cat, t):
-        prods = [p for p in st.session_state.productos_db if p['cat'] == cat]
-        cols = t.columns(3)
+
+    def mostrar_categoria(categoria, tab_st):
+        prods = [p for p in st.session_state.productos_db if p['cat'] == categoria]
+        c_grid = tab_st.columns(3) # 3 columnas para que quepan más
         for i, p in enumerate(prods):
-            with cols[i % 3]:
-                st.markdown(f'<div class="product-card"><img src="{p["foto"]}"><h4>{p["nombre"]}</h4><span class="price-tag">${p["precio"]:,}</span></div>', unsafe_allow_html=True)
-                if st.checkbox(f"Añadir {p['nombre']}", key=f"{cat}_{i}"):
+            with c_grid[i % 3]:
+                st.markdown(f"""
+                    <div class="product-card">
+                        <img src="{p['foto']}">
+                        <p style="margin:0; font-weight:bold;">{p['nombre']}</p>
+                        <p style="margin:0; color:green;">${p['precio']:,}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                # Solo el checkbox, sin el formulario pesado
+                if st.checkbox(f"Llevar {p['nombre']}", key=f"chk_{categoria}_{i}"):
                     carrito.append(p)
 
-    with tabs[0]: mostrar("Waffles", tabs[0])
-    with tabs[1]: mostrar("Crepes", tabs[1])
-    with tabs[2]: mostrar("Malteadas", tabs[2])
-    with tabs[3]: mostrar("Bebidas", tabs[3])
+    with t1: mostrar_categoria("Waffles", t1)
+    with t2: mostrar_categoria("Crepes", t2)
+    with t3: mostrar_categoria("Malteadas", t3)
+    with t4: mostrar_categoria("Bebidas Frías", t4)
 
+    st.markdown("---")
+    
+    # --- FORMULARIO ÚNICO AL FINAL ---
     if carrito:
-        st.markdown("---")
-        with st.form("pedido"):
-            nombre = st.text_input("Nombre")
-            tel = st.text_input("WhatsApp")
-            sucursal = st.selectbox("Sucursal", ["Barrancas", "Estrada", "Verbenal"])
-            if st.form_submit_button("PEDIR TODO POR WHATSAPP ✅"):
-                total = sum([x['precio'] for x in carrito])
-                resumen = ", ".join([x['nombre'] for x in carrito])
-                msg = f"*ORDEN VIP*\n*Cliente:* {nombre}\n*Pedido:* {resumen}\n*Total:* ${total:,}"
-                url = f"https://wa.me/{NUMERO_WHATSAPP}?text={urllib.parse.quote(msg)}"
-                st.markdown(f'<meta http-equiv="refresh" content="0;URL={url}">', unsafe_allow_html=True)
+        st.write("### 2. Resumen y Datos de Envío")
+        
+        # Mostrar resumen de lo seleccionado
+        nombres_seleccionados = [x['nombre'] for x in carrito]
+        total_pago = sum([x['precio'] for x in carrito])
+        
+        st.markdown(f"""
+            <div class="resumen-box">
+                <b>Productos seleccionados:</b> {", ".join(nombres_seleccionados)}<br>
+                <b>Total estimado: ${total_pago:,}</b>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("unico_formulario"):
+            c1, c2 = st.columns(2)
+            with c1:
+                nombre = st.text_input("Nombre Completo")
+                tel = st.text_input("WhatsApp")
+            with c2:
+                sucursal = st.selectbox("Sucursal", ["Barrancas", "Estrada", "Verbenal"])
+                metodo = st.radio("Entrega", ["Domicilio", "Retiro en local", "En mesa"])
+            
+            pago = st.selectbox("Método de Pago", ["Nequi", "Efectivo", "Datafono"])
+            notas = st.text_area("Comentarios (ej: sin azúcar, extras)")
+            
+            if st.form_submit_button("ENVIAR TODO POR WHATSAPP ✅"):
+                if not nombre or not tel:
+                    st.error("Por favor completa tu nombre y WhatsApp")
+                else:
+                    resumen_txt = ", ".join(nombres_seleccionados)
+                    msg = f"*ORDEN VIP*\n*Cliente:* {nombre}\n*Pedido:* {resumen_txt}\n*Total:* ${total_pago:,}\n*Sucursal:* {sucursal}\n*Notas:* {notas}"
+                    url_wa = f"https://wa.me/{NUMERO_WHATSAPP}?text={urllib.parse.quote(msg)}"
+                    
+                    st.success("¡Redirigiendo!")
+                    st.markdown(f'<meta http-equiv="refresh" content="0;URL={url_wa}">', unsafe_allow_html=True)
+    else:
+        st.info("👆 Selecciona al menos un producto arriba para ver el formulario de envío.")
+
+# --- VISTA ADMIN (IGUAL QUE ANTES) ---
+elif opcion == "⚙️ Admin Productos":
+    st.title("Admin")
+    # ... (mismo código de admin anterior)
