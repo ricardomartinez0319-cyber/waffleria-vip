@@ -3,116 +3,176 @@ import pandas as pd
 from datetime import datetime
 import urllib.parse
 
-st.set_page_config(page_title="La Waffleria VIP - Pedidos", page_icon="🧇", layout="wide")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="La Waffleria VIP", page_icon="🧇", layout="wide")
 
-# --- BASE DE DATOS SIMULADA ---
+# --- ESTILOS PERSONALIZADOS (Rosado, Café, Amarillo) ---
+st.markdown("""
+<style>
+    :root {
+        --rosado: #FFC0CB;
+        --cafe: #5D4037;
+        --amarillo: #FFD700;
+        --blanco: #FFFFFF;
+    }
+    
+    .stApp { background-color: #FFF9FB; }
+    
+    /* Barra Lateral */
+    [data-testid="stSidebar"] {
+        background-color: var(--rosado) !important;
+    }
+    
+    /* Títulos y Etiquetas */
+    h1, h2, h3, label, .stMarkdown {
+        color: var(--cafe) !important;
+        font-family: 'Verdana', sans-serif;
+    }
+
+    /* Tarjetas de Producto */
+    .product-card {
+        background-color: var(--blanco);
+        border: 3px solid var(--amarillo);
+        border-radius: 20px;
+        padding: 15px;
+        text-align: center;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+        margin-bottom: 10px;
+    }
+    .product-card img {
+        width: 100%;
+        border-radius: 15px;
+        height: 180px;
+        object-fit: cover;
+    }
+    .price-tag {
+        background-color: var(--amarillo);
+        color: var(--cafe);
+        font-weight: bold;
+        font-size: 22px;
+        border-radius: 8px;
+        padding: 5px 10px;
+        display: inline-block;
+        margin-top: 10px;
+    }
+    
+    /* Botón de WhatsApp */
+    .btn-wa {
+        background-color: #25D366;
+        color: white !important;
+        padding: 18px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: bold;
+        display: block;
+        text-align: center;
+        font-size: 22px;
+        margin-top: 20px;
+        box-shadow: 0px 4px 15px rgba(37, 211, 102, 0.4);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# --- BASE DE DATOS TEMPORAL ---
+if 'productos_db' not in st.session_state:
+    st.session_state.productos_db = [
+        {"nombre": "Waffle Oreo", "precio": 15000, "foto": "https://shoppedifacil.app/lawaffleriavip/uploads/carousel/waffle-oreo-3.png"},
+        {"nombre": "Waffle Pie de Limón", "precio": 16000, "foto": "https://shoppedifacil.app/lawaffleriavip/uploads/carousel/waffle-pie-limon.png"},
+        {"nombre": "Waffle Frutal", "precio": 14000, "foto": "https://shoppedifacil.app/lawaffleriavip/uploads/carousel/waffle-frutal.png"},
+        {"nombre": "Waffle Chocolate", "precio": 15500, "foto": "https://shoppedifacil.app/lawaffleriavip/uploads/carousel/waffle-chocolate-2.png"}
+    ]
+
 if 'pedidos' not in st.session_state:
     st.session_state.pedidos = []
 
-if 'productos_db' not in st.session_state:
-    # Productos iniciales por defecto
-    st.session_state.productos_db = [
-        {"nombre": "Waffle Oreo", "precio": 15000, "foto": "https://via.placeholder.com/150"},
-        {"nombre": "Waffle Frutal", "precio": 14000, "foto": "https://via.placeholder.com/150"}
-    ]
+# --- CONFIGURACIÓN ---
+NUMERO_WHATSAPP = "573152926973"
+CLAVE_ADMIN = "1234"
 
-# --- NAVEGACIÓN ---
-st.sidebar.title("La Waffleria VIP")
-modo = st.sidebar.radio("Ir a:", ["🛍️ Hacer Pedido", "⚙️ Gestionar Productos", "📊 Panel de Ventas"])
+# --- SIDEBAR ---
+st.sidebar.image("https://yourfiles.cloud/uploads/9caa7594996bc50a02d6f45917143c9f/LOGO%202.png", width=140)
+opcion = st.sidebar.radio("MENÚ", ["🛒 Hacer Pedido", "⚙️ Admin Productos", "📈 Registro Ventas"])
 
-# --- WHATSAPP CONFIG ---
-NUMERO_WHATSAPP = "573152926973" # <-- REEMPLAZA CON TU NÚMERO (Sin el +)
+# --- VISTA: HACER PEDIDO ---
+if opcion == "🛒 Hacer Pedido":
+    st.title("🧇 ¡La Waffleria VIP!")
+    st.write("Selecciona tus productos favoritos:")
 
-# --- MODO: HACER PEDIDO ---
-if modo == "🛍️ Hacer Pedido":
-    st.image("https://yourfiles.cloud/uploads/9caa7594996bc50a02d6f45917143c9f/LOGO%202.png", width=150)
-    st.title("¡Pide tus Waffles!")
-
-    with st.form("form_pedido"):
-        st.subheader("1. Tus Datos")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            nombre = st.text_input("¿Quién pide?")
-            sucursal = st.selectbox("Sucursal", ["Barrancas / San Cristóbal", "Estrada", "Verbenal"])
-        with col_b:
-            telefono = st.text_input("Tu WhatsApp")
-            entrega = st.radio("Entrega", ["Retiro en local", "Envío", "Consumo en lugar"])
-
-        st.subheader("2. Menú")
-        # Mostramos los productos que el admin creó
-        nombres_productos = [p['nombre'] for p in st.session_state.productos_db]
-        seleccionados = st.multiselect("Elige tus favoritos", nombres_productos)
-        
-        st.subheader("3. Pago y Extras")
-        pago = st.selectbox("Medio de pago", ["Efectivo", "Nequi", "Daviplata"])
-        notas = st.text_area("Notas especiales (sin cebolla, más chocolate...)")
-        
-        enviar = st.form_submit_button("Confirmar y Enviar a WhatsApp 🚀")
-
-    if enviar:
-        # Calcular Resumen
-        resumen_pedido = ", ".join(seleccionados)
-        ahora = datetime.now().strftime("%d/%m %H:%M")
-        
-        # Guardar en el panel (volátil por ahora)
-        pedido_data = {"Hora": ahora, "Sucursal": sucursal, "Cliente": nombre, "Pedido": resumen_pedido, "Pago": pago}
-        st.session_state.pedidos.append(pedido_data)
-
-        # CREAR MENSAJE PARA WHATSAPP
-        texto = f"*NUEVO PEDIDO - LA WAFFLERIA VIP*\n\n" \
-                f"*Cliente:* {nombre}\n" \
-                f"*Sucursal:* {sucursal}\n" \
-                f"*Pedido:* {resumen_pedido}\n" \
-                f"*Entrega:* {entrega}\n" \
-                f"*Pago:* {pago}\n" \
-                f"*Notas:* {notas}"
-        
-        texto_url = urllib.parse.quote(texto)
-        url_wa = f"https://wa.me/{NUMERO_WHATSAPP}?text={texto_url}"
-        
-        st.success("¡Pedido registrado!")
-        st.markdown(f'''
-            <a href="{url_wa}" target="_blank">
-                <button style="background-color: #25D366; color: white; padding: 15px; border: none; border-radius: 10px; width: 100%; cursor: pointer; font-weight: bold;">
-                    CLIC AQUÍ PARA ENVIAR POR WHATSAPP ✅
-                </button>
-            </a>
-            ''', unsafe_allow_html=True)
-
-# --- MODO: GESTIONAR PRODUCTOS ---
-elif modo == "⚙️ Gestionar Productos":
-    st.title("Crear y Editar Productos")
+    cols = st.columns(2)
+    seleccionados = []
     
-    with st.expander("➕ Añadir Nuevo Producto"):
-        nuevo_nombre = st.text_input("Nombre del producto")
-        nuevo_precio = st.number_input("Precio", min_value=0, step=500)
-        nueva_foto = st.text_input("Link de la foto (URL)")
-        if st.button("Guardar Producto"):
-            st.session_state.productos_db.append({"nombre": nuevo_nombre, "precio": nuevo_precio, "foto": nueva_foto})
-            st.success("Producto añadido!")
-            st.rerun()
+    for idx, p in enumerate(st.session_state.productos_db):
+        with cols[idx % 2]:
+            st.markdown(f"""
+                <div class="product-card">
+                    <img src="{p['foto']}">
+                    <h3>{p['nombre']}</h3>
+                    <div class="price-tag">${p['precio']:,}</div>
+                </div>
+            """, unsafe_allow_html=True)
+            if st.checkbox(f"Pedir {p['nombre']}", key=f"p_{idx}"):
+                seleccionados.append(p)
 
-    st.subheader("Productos Actuales")
-    for i, p in enumerate(st.session_state.productos_db):
-        col_img, col_txt, col_btn = st.columns([1, 2, 1])
-        with col_img:
-            st.image(p['foto'], width=80)
-        with col_txt:
-            st.write(f"**{p['nombre']}** - ${p['precio']}")
-        with col_btn:
-            if st.button(f"Eliminar", key=f"del_{i}"):
+    st.markdown("---")
+    
+    with st.form("form_pedido"):
+        st.subheader("Finalizar Pedido")
+        c1, c2 = st.columns(2)
+        with c1:
+            nombre = st.text_input("Tu Nombre")
+            tel = st.text_input("Tu WhatsApp")
+        with c2:
+            sucursal = st.selectbox("Sucursal", ["Barrancas / San Cristóbal", "Estrada", "Verbenal"])
+            entrega = st.radio("Entrega", ["Domicilio", "Retiro", "Local"])
+            
+        pago = st.selectbox("Pago", ["Nequi", "Efectivo", "Daviplata"])
+        notas = st.text_area("Notas adicionales")
+        
+        if st.form_submit_button("Generar Orden 🚀"):
+            if not nombre or not seleccionados:
+                st.error("Completa tu nombre y elige al menos un producto.")
+            else:
+                total = sum([x['precio'] for x in seleccionados])
+                resumen = ", ".join([x['nombre'] for x in seleccionados])
+                
+                # Guardar para Admin
+                st.session_state.pedidos.append({"Fecha": datetime.now().strftime("%d/%m %H:%M"), "Cliente": nombre, "Pedido": resumen, "Total": total})
+                
+                # Mensaje WhatsApp
+                msg = f"*PEDIDO WAFFLERÍA VIP*\n*Cliente:* {nombre}\n*Pedido:* {resumen}\n*Total:* ${total:,}\n*Pago:* {pago}\n*Sucursal:* {sucursal}"
+                url = f"https://wa.me/{NUMERO_WHATSAPP}?text={urllib.parse.quote(msg)}"
+                
+                st.success("¡Pedido listo!")
+                st.markdown(f'<a href="{url}" target="_blank" class="btn-wa">ENVIAR POR WHATSAPP ✅</a>', unsafe_allow_html=True)
+
+# --- VISTA: ADMIN ---
+elif opcion == "⚙️ Admin Productos":
+    st.title("Gestión de Inventario")
+    pw = st.text_input("Clave", type="password")
+    if pw == CLAVE_ADMIN:
+        with st.expander("Añadir Producto"):
+            n = st.text_input("Nombre")
+            pr = st.number_input("Precio", min_value=0)
+            img = st.text_input("URL Imagen")
+            if st.button("Agregar"):
+                st.session_state.productos_db.append({"nombre": n, "precio": pr, "foto": img})
+                st.rerun()
+        
+        for i, p in enumerate(st.session_state.productos_db):
+            col1, col2 = st.columns([3,1])
+            col1.write(f"**{p['nombre']}** - ${p['precio']}")
+            if col2.button("X", key=f"del_{i}"):
                 st.session_state.productos_db.pop(i)
                 st.rerun()
 
-# --- MODO: PANEL DE VENTAS ---
-elif modo == "📊 Panel de Ventas":
-    st.title("Panel de Pedidos")
-    if st.session_state.pedidos:
-        df = pd.DataFrame(st.session_state.pedidos)
-        st.table(df)
-        if st.button("Limpiar historial"):
-            st.session_state.pedidos = []
-            st.rerun()
-    else:
-        st.info("No hay pedidos registrados en esta sesión.")
+# --- VISTA: VENTAS ---
+elif opcion == "📈 Registro Ventas":
+    st.title("Historial")
+    pw = st.text_input("Clave", type="password")
+    if pw == CLAVE_ADMIN:
+        if st.session_state.pedidos:
+            st.table(pd.DataFrame(st.session_state.pedidos))
+        else:
+            st.write("Sin ventas.")
+
 
